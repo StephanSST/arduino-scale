@@ -1,21 +1,8 @@
-TODO List:
+# Setup
 
-Software:
-- mqtt server takes char array to print
-- sleep über Nacht einbauen
-- Message rentention auf mqtt festlegen
-- client-id setzen, ja oder nein...
+To build the projects use the Arduino IDE and install these libraries:
 
-Hardware:
-- Kabelverbindung, recycling Tinkerforge?
-- Gehäuse Arudino und Co?
-- Strom-Messungen
+- ArduinoMqttClient
+- HX711_ADC
 
-Strommessung:
-- measure impuls every 30 seconds instead 10
-- sleep instead of 'don't print'
-- disconnect mqtt & wifi
-- sleep
-- result:
-  - 1s/20s/hx711-powerup:   1.0W
-  - 1s/20s/hx711-powerdown: 0.9W
+Next step is to create the `arduino-secrets.h` file (see [arduino-secrets-README.md](arduino-secrets-README.md)).
