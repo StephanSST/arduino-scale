@@ -15,6 +15,9 @@
 // wifi connection
 char ssid[] = SECRET_SSID;    // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password 
+int reconnectWifiInterval = 30000; //interval when to send weight as message
+int lastWifiConnectionState = -99;
+unsigned long wifiConnectionSince = 0;
 WiFiClient wifiClient;
 
 // mqtt connection
@@ -43,9 +46,10 @@ HX711_ADC LoadCell_2(HX711_dout_2, HX711_sck_2); //HX711 2
 const int calVal_eepromAdress_1 = 0; // eeprom adress for calibration value load cell 1 (4 bytes)
 const int calVal_eepromAdress_2 = 4; // eeprom adress for calibration value load cell 2 (4 bytes)
 
-unsigned long t = 0;
-unsigned long m = 0;
+unsigned long lastDataGrabbed = 0;
+unsigned long lastMessageSent = 0;
 unsigned long startUp = millis();
+
 boolean executeTare1 = 0;
 boolean executeTare2 = 0;
 
@@ -91,6 +95,8 @@ void setup() {
 }
 
 void loop() {
+  checkWifiAndReconnect();
+
   static boolean newDataReady = 0;
   const int serialPrintInterval = 1000; //increase value to slow down serial print activity
   const int sendMessageInterval = 20000; //interval when to send weight as message
@@ -101,7 +107,7 @@ void loop() {
 
   //get smoothed value from data set
   if ((newDataReady)) {
-    if (millis() > t + serialPrintInterval) {
+    if (millis() > lastDataGrabbed + serialPrintInterval) {
       float a = LoadCell_1.getData();
       float b = LoadCell_2.getData();
       Serial.print("Load_cell 1 output val: ");
@@ -109,9 +115,9 @@ void loop() {
       Serial.print("    Load_cell 2 output val: ");
       Serial.println(b);
       newDataReady = 0;
-      t = millis();
-      if (millis() > m + sendMessageInterval) {
-        m = millis();
+      lastDataGrabbed = millis();
+      if (millis() > lastMessageSent + sendMessageInterval) {
+        lastMessageSent = millis();
         Serial.print("Sending message with weight 1: ");
         Serial.print(a);
         Serial.print(" and weight 2: ");
@@ -187,7 +193,7 @@ void onMqttMessage(int messageSize) {
 
 void connectToWifi() {
   // Connect to WiFi
-  Serial.print("Attempting to connect to WPA SSID: ");
+  Serial.print("Attempting to (re-)connect to WPA SSID: ");
   Serial.println(ssid);
   while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
     // failed, retry
@@ -195,8 +201,34 @@ void connectToWifi() {
     delay(2000);
   }
 
+  wifiConnectionSince = millis();
   Serial.println("You're connected to the network");
   Serial.println();
+}
+
+void checkWifiAndReconnect() {
+  int state = WiFi.status();
+  if (lastWifiConnectionState != state) {
+    Serial.print("Current WIFI state '");
+    Serial.print(state);
+    Serial.print("', WL_CONNECTED(3) = ");
+    Serial.print(state == WL_CONNECTED ? "true" : "false");
+    Serial.print("', WL_IDLE_STATUS(0) = ");
+    Serial.print(state == WL_IDLE_STATUS ? "true" : "false");
+    Serial.println("'.");
+    lastWifiConnectionState = state;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    wifiConnectionSince = millis();
+  } else if (millis() > wifiConnectionSince + reconnectWifiInterval) {
+    Serial.print("WIFI connection not ready, current state is '");
+    Serial.print(WiFi.status());
+    Serial.println("', trying to reconnect.");
+    WiFi.disconnect();
+    connectToWifi();
+    wifiConnectionSince = millis();
+  }
 }
 
 void connectToMqttServer() {
