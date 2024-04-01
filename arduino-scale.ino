@@ -48,8 +48,6 @@ unsigned long m = 0;
 unsigned long startUp = millis();
 boolean executeTare1 = 0;
 boolean executeTare2 = 0;
-boolean powerdown = 0;
-boolean powerup = 0;
 
 void setup() {
   delay(2000);
@@ -146,31 +144,6 @@ void loop() {
     mqttPrintState("Tare load cell 2 complete");
   }
 
-  if (powerdown) {
-    digitalWrite(HX711_sck_1, LOW);
-    digitalWrite(HX711_sck_1, HIGH);
-    digitalWrite(HX711_sck_2, LOW);
-    digitalWrite(HX711_sck_2, HIGH);
-    mqttPrintState("Arduino will sleep for 30 seconds.");
-    mqttClient.stop();
-    wifiClient.stop();
-
-    delay(10000);
-
-    mqttPrintState("Arduino woke up after 30 seconds.");
-    connectToWifi();
-    connectToMqttServer();
-    digitalWrite(HX711_sck_1, LOW);
-    digitalWrite(HX711_sck_2, LOW);
-    powerdown = 0;
-  }
-
-  if (powerup) {
-//    digitalWrite(HX711_sck_1, LOW);
-//    digitalWrite(HX711_sck_2, LOW);
-    powerup = 0;
-  }
-
   // call poll() regularly to allow the library to receive MQTT messages and
   // send MQTT keep alives which avoids being disconnected by the broker
   mqttClient.poll();
@@ -205,10 +178,10 @@ void onMqttMessage(int messageSize) {
     executeTare1 = true;
   } else if(strcmp(messageContent, "tare:2") == 0) {
     executeTare2 = true;
-  } else if(strcmp(messageContent, "powerdown") == 0) {
-    powerdown = true;
-  } else if(strcmp(messageContent, "powerup") == 0) {
-    powerup = true;
+  } else if(strcmp(messageContent, "ping") == 0) {
+    mqttClient.beginMessage(outTopic);
+    mqttClient.print("pong");
+    mqttClient.endMessage();
   }
 }
 
